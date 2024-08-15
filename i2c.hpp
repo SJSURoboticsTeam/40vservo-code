@@ -85,7 +85,7 @@ struct I2cState {
   ext::inplace_vector<uint8_t, 16> buffer;
   uint8_t last_byte = 0;
 
-  bool serve(I2cStatus status) {
+  bool serve(I2cStatus status) noexcept {
     using enum I2cStatus;
     switch (status) {
     case start_sr:
