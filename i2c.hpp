@@ -6,43 +6,10 @@
 #include <bit>
 #include <cstdint>
 
+#include "device.hpp"
 #include "inplace_vector.hpp"
-#include "pid.hpp"
 #include "set_reg.hpp"
 
-struct DeviceState {
-  enum Mode : char { position = 'p', velocity = 'v', current = 'a' };
-  Mode mode = DeviceState::position;
-  MiniPID p_pid = {0, 0, 0, 0}, v_pid = {0, 0, 0, 0}, i_pid = {0, 0, 0, 0};
-  uint16_t prev_loc = 0;
-  uint16_t current_loc = 0;
-  float dev_current = 0;
-
-  float get_angle() { return current_loc / float(1 << 4); }
-  float get_vel() { return (current_loc - prev_loc) / float(1 << 4); }
-
-  DeviceState() {}
-  DeviceState(DeviceState &&) = delete;
-  DeviceState(DeviceState const &) = delete;
-  ~DeviceState() = default;
-
-  MiniPID &pid() noexcept {
-    switch (mode) {
-    case position:
-      return p_pid;
-    case velocity:
-      return v_pid;
-    case current:
-      return i_pid;
-    }
-  }
-  void transition_state(Mode new_state) noexcept {
-    if (new_state == mode)
-      return;
-    mode = new_state;
-    pid().reset();
-  }
-};
 inline DeviceState *device_state = nullptr;
 
 enum struct I2cStatus : uint8_t {
@@ -65,16 +32,16 @@ struct I2cState {
     addressing = 0x01,
     change_mode = 0x02,
     change_pid = 0x03,
+    change_setpoint = 0x04,
     read_mode = 0x04,
     read_pid = 0x80,
     read_pos = 0x81,
     read_vel = 0x82,
     read_current = 0x83,
+    read_setpoint = 0x84,
   };
 
-  bool is_write_mode() const noexcept {
-    return mode == change_mode || mode == change_pid;
-  }
+  bool is_write_mode() const noexcept { return mode < 0x80; }
   bool is_read_mode() const noexcept {
     if (mode == idle || mode == addressing)
       return false;
@@ -163,6 +130,9 @@ struct I2cState {
     case 't':
       mode = change_pid;
       return true;
+    case 's':
+      mode = change_setpoint;
+      return true;
     case 'w':
       mode = read_mode;
       return true;
@@ -177,6 +147,10 @@ struct I2cState {
       return true;
     case 'A':
       mode = read_current;
+      return true;
+    case 'S':
+      mode = read_setpoint;
+      return true;
     default:
       return false;
     }
@@ -195,24 +169,35 @@ struct I2cState {
       return;
     switch (mode) {
     case change_pid: {
-      device_state->pid().setP(pop_float());
-      device_state->pid().setI(pop_float());
-      device_state->pid().setD(pop_float());
       device_state->pid().setF(pop_float());
+      device_state->pid().setD(pop_float());
+      device_state->pid().setI(pop_float());
+      device_state->pid().setP(pop_float());
       return;
     }
     case change_mode: {
+      const float setpoint = pop_float();
       const char mode = buffer.back();
+      buffer.pop_back();
+      DeviceState::Mode m = DeviceState::Mode::position;
       switch (mode) {
       case 'p':
+        m = DeviceState::Mode::position;
+        break;
       case 'v':
+        m = DeviceState::Mode::velocity;
+        break;
       case 'a':
-        device_state->mode = static_cast<DeviceState::Mode>(mode);
+        m = DeviceState::Mode::current;
+        break;
       default:;
       }
-      buffer.pop_back();
+      device_state->transition_state(m, setpoint);
       break;
     }
+    case change_setpoint:
+      device_state->setpoint = pop_float();
+      break;
     default:
       return;
     }
@@ -250,6 +235,10 @@ struct I2cState {
       push_back_float(device_state->dev_current);
       break;
     }
+    case read_setpoint:
+      push_back_float(device_state->setpoint);
+      break;
+
     default:
       break;
     }

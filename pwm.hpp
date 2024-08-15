@@ -18,15 +18,54 @@ inline void pwm_set(float f) {
   TCNT1H = value & 0xff00;
 }
 
-inline void set_A(bool value) {
+inline void setA(bool value) {
   if (value)
     TCCR1A |= setmask(COM1A1);
   else
     TCCR1A &= clearmask(COM1A1);
 }
-inline void set_B(bool value) {
+
+inline void setB(bool value) {
   if (value)
     TCCR1A |= setmask(COM1B1);
   else
     TCCR1A &= clearmask(COM1B1);
+}
+
+inline void pinA(bool value) {
+  if (value)
+    PORTD |= setmask(PORTD6);
+  else
+    PORTD &= clearmask(PORTD6);
+}
+
+inline void pinB(bool value) {
+  if (value)
+    PORTD |= setmask(PORTD5);
+  else
+    PORTD &= clearmask(PORTD5);
+}
+
+inline void set_motor(float value) {
+  if (value == 0) {
+    setA(false);
+    setB(false);
+    pinA(false);
+    pinB(false);
+    return;
+  }
+  if (value > 0) {
+    pwm_set(value);
+    setA(true);
+    setB(false);
+    pinA(false);
+    pinB(true);
+
+  } else {
+    pwm_set(-value);
+    setA(false);
+    setB(true);
+    pinA(true);
+    pinB(false);
+  }
 }
