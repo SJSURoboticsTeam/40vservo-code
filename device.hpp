@@ -48,6 +48,7 @@ struct DeviceState {
     case current:
       return i_pid;
     }
+    __builtin_unreachable();
   }
 
   void transition_state(Mode new_state, float setpoint) noexcept {

@@ -12,7 +12,7 @@ ASFLAGS := -mmcu=$(MCU)
 FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I . --param=min-pagesize=0 -Werror=array-bounds -mcall-prologues
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
-CPPFLAGS := -DNDEBUG -MMD
+CPPFLAGS := -DNDEBUG -MMD -DF_CPU=16000000
 LDFLAGS :=  -mmcu=$(MCU) -Xlinker -Map=output.map -Wl,--gc-sections
 
 FILES := pid.cpp test.cpp
