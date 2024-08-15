@@ -11,7 +11,7 @@ MCU:=atmega328p
 ASFLAGS := -mmcu=$(MCU)
 FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I . --param=min-pagesize=0 -Werror=array-bounds -mcall-prologues
 CFLAGS := $(FLAGS)
-CXXFLAGS := $(FLAGS) -std=c++20  -fno-exceptions
+CXXFLAGS := $(FLAGS) -std=c++20
 CPPFLAGS := -DNDEBUG -MMD
 LDFLAGS :=  -mmcu=$(MCU) -Xlinker -Map=output.map -Wl,--gc-sections
 
