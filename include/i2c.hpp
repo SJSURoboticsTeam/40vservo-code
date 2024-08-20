@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "device.hpp"
-#include "inplace_vector.hpp"
+#include "nonstd/ring_span.hpp"
 #include "set_reg.hpp"
 
 inline DeviceState *device_state = nullptr;
@@ -27,6 +27,9 @@ enum struct I2cStatus : uint8_t {
 };
 
 struct I2cState {
+
+  I2cState() : buffer(raw_buffer.begin(), raw_buffer.end()) {}
+
   enum Mode : uint8_t {
     idle,
     addressing = 0x01,
@@ -49,8 +52,8 @@ struct I2cState {
   }
 
   Mode mode = idle;
-  ext::inplace_vector<uint8_t, 16> buffer;
-  uint8_t last_byte = 0;
+  std::array<uint8_t, 64> raw_buffer;
+  nonstd::ring_span_lite::ring_span<uint8_t> buffer;
 
   bool serve(I2cStatus status) noexcept {
     using enum I2cStatus;
@@ -64,16 +67,16 @@ struct I2cState {
       return true;
     case ack_sr:
     case ack_gen: {
-      char data = TWDR;
+      uint8_t data = TWDR;
       if (mode == addressing) {
         return set_addr(data);
       }
       if (!is_write_mode() || buffer.full()) {
-        char _ = TWDR;
+        uint8_t _ = TWDR;
         mode = idle;
         return false;
       }
-      buffer.push_back(data);
+      buffer.push_front(data);
       return true;
     }
 
@@ -90,7 +93,7 @@ struct I2cState {
         return false;
       }
       load_data();
-      last_byte = buffer.back();
+      uint8_t last_byte = buffer.back();
       TWDR = last_byte;
       buffer.pop_back();
       return !buffer.empty();
@@ -100,7 +103,7 @@ struct I2cState {
         mode = idle;
         return false;
       }
-      last_byte = buffer.back();
+      uint8_t last_byte = buffer.back();
       TWDR = last_byte;
       buffer.pop_back();
       return !buffer.empty();
@@ -157,11 +160,9 @@ struct I2cState {
   }
 
   float pop_float() {
-    float value = *reinterpret_cast<float *>(buffer.data() + buffer.size() - 4);
-    for (int i = 0; i != 4; i++) {
-      buffer.pop_back();
-    }
-    return value;
+    std::array<uint8_t, 4> result;
+    std::copy(buffer.begin(), buffer.end(), result.data());
+    return std::bit_cast<float>(result);
   }
 
   void output_data() {
@@ -177,7 +178,7 @@ struct I2cState {
     }
     case change_mode: {
       const float setpoint = pop_float();
-      const char mode = buffer.back();
+      const char mode = static_cast<char>( buffer.back());
       buffer.pop_back();
       DeviceState::Mode m = DeviceState::Mode::position;
       switch (mode) {
@@ -206,14 +207,14 @@ struct I2cState {
   void push_back_float(float f) {
     auto p = std::bit_cast<std::array<uint8_t, 4>>(f);
     for (auto c : p) {
-      buffer.push_back(c);
+      buffer.push_front(c);
     }
   }
 
   void load_data() {
     switch (mode) {
     case read_mode:
-      buffer.push_back(device_state->mode);
+      buffer.push_front(device_state->mode);
       break;
     case read_pid: {
       auto &pid = device_state->pid();
