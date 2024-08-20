@@ -12,10 +12,10 @@ ASFLAGS := -mmcu=$(MCU)
 FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I include --param=min-pagesize=0 -Werror=array-bounds -mcall-prologues
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
-CPPFLAGS := -DNDEBUG -MMD -DF_CPU=16000000
+CPPFLAGS := -MMD -DF_CPU=16000000
 LDFLAGS :=  -mmcu=$(MCU) -Xlinker -Map=output.map -Wl,--gc-sections
 
-FILES := pid.cpp main.cpp
+FILES := pid.cpp main.cpp print.cpp
 BASENAMES := $(basename $(FILES))
 OBJ := $(addsuffix .o, $(BASENAMES))
 DEPS := $(addsuffix .d, $(BASENAMES))
@@ -29,7 +29,7 @@ test.hex: test.elf
 dump.txt: test.elf
 	avr-objdump -Cd test.elf > dump.txt
 
-test.elf output.map: $(OBJ)
+test.elf output.map: main.o pid.o
 	$(CXX) -o  $@ $^ $(LDFLAGS)
 
 sim: test.elf

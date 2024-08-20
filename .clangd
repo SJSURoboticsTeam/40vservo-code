@@ -1,4 +1,5 @@
 CompileFlags:
   Remove: [-maccumulate-args, -mcall-prologues]
+  Add: -isysroot=~/out/root/avr/include/c++/13.2.0
   Compiler: avr-gcc
 
