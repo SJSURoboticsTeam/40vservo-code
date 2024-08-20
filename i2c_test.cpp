@@ -6,7 +6,7 @@
 namespace {
 auto i2c = I2c(
     [](uint8_t addr, buffer_span &output) {
-      debug_print("i2c addressed at 0x%x with bytes", addr);
+      debug_print("i2c addressed at 0x%x with bytes ", addr);
       while (!output.empty()) {
         printf("0x%x ", output.pop_back());
       }

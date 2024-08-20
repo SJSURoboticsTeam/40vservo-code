@@ -1,6 +1,6 @@
 .PHONEY: all clean sim
 
-all: test.hex dump.txt filtered.map
+all: main.hex i2c.hex
 
 CC:=avr-gcc
 CXX:=avr-g++
@@ -13,7 +13,7 @@ FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I include
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
 CPPFLAGS := -MMD -DF_CPU=16000000
-LDFLAGS :=  -mmcu=$(MCU) -Xlinker -Map=output.map -Wl,--gc-sections
+LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections
 
 FILES := pid.cpp main.cpp print.cpp
 BASENAMES := $(basename $(FILES))
@@ -23,13 +23,13 @@ DEPS := $(addsuffix .d, $(BASENAMES))
 clean:
 	rm -f *.elf *.o *.hex *.map *.txt *.d
 
-test.hex: test.elf
-	avr-objcopy -j .text -j .data -O ihex test.elf test.hex
+%.hex: %.elf
+	avr-objcopy -j .text -j .data -O ihex $< $@
 
-dump.txt: test.elf
-	avr-objdump -Cd test.elf > dump.txt
+main.elf: main.o pid.o
+	$(CXX) -o  $@ $^ $(LDFLAGS)
 
-test.elf output.map: main.o pid.o
+i2c.elf: i2c_test.o pid.o
 	$(CXX) -o  $@ $^ $(LDFLAGS)
 
 sim: test.elf
@@ -37,8 +37,5 @@ sim: test.elf
 
 gdb: test.elf
 	simavr test.elf -m $(MCU) -g
-
-filtered.map: output.map
-	cat output.map | c++filt > filtered.map
 
 -include $(DEPS)

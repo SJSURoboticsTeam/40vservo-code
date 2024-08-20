@@ -5,7 +5,7 @@
 #include "pid.hpp"
 
 struct DeviceState {
-  enum Mode : char { position, velocity, current };
+  enum Mode : uint8_t { position, velocity, current };
 
   float get_angle() const noexcept { return current_loc / float(1 << 4); }
   float get_vel() const noexcept {
