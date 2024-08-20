@@ -13,6 +13,14 @@ struct DeviceState {
   }
   float get_current() const noexcept { return dev_current; }
   float get_setpoint() const noexcept { return pid().getSetpoint(); }
+  float get_P() const noexcept { return pid().P; }
+  float get_I() const noexcept { return pid().I; }
+  float get_D() const noexcept { return pid().D; }
+  float get_F() const noexcept { return pid().F; }
+  void set_P(float p) noexcept { return pid().setP(p); }
+  void set_I(float i) noexcept { return pid().setI(i); }
+  void set_D(float d) noexcept { return pid().setD(d); }
+  void set_F(float f) noexcept { return pid().setF(f); }
 
   void update_loc(uint16_t value) noexcept {
     prev_loc = current_loc;
@@ -40,6 +48,16 @@ struct DeviceState {
   DeviceState(DeviceState const &) = delete;
   ~DeviceState() = default;
 
+  void transition_state(Mode new_state, float setpoint) noexcept {
+    if (new_state == mode)
+      return;
+    mode = new_state;
+    pid().reset();
+    pid().setSetpoint(setpoint);
+  }
+  void set_setpoint(float setpoint) noexcept { pid().setSetpoint(setpoint); }
+
+private:
   MiniPID &pid() noexcept {
     switch (mode) {
     case position:
@@ -62,17 +80,6 @@ struct DeviceState {
     }
     __builtin_unreachable();
   }
-
-  void transition_state(Mode new_state, float setpoint) noexcept {
-    if (new_state == mode)
-      return;
-    mode = new_state;
-    pid().reset();
-    pid().setSetpoint(setpoint);
-  }
-  void set_setpoint(float setpoint) noexcept { pid().setSetpoint(setpoint); }
-
-private:
   Mode mode = DeviceState::position;
   MiniPID p_pid = {0, 0, 0, 0}, v_pid = {0, 0, 0, 0}, i_pid = {0, 0, 0, 0};
   uint16_t prev_loc = 0;

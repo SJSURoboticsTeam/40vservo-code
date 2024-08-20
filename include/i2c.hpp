@@ -173,10 +173,10 @@ private:
   void output_data() {
     switch (mode) {
     case change_pid: {
-      device_state.pid().setF(pop_float());
-      device_state.pid().setD(pop_float());
-      device_state.pid().setI(pop_float());
-      device_state.pid().setP(pop_float());
+      device_state.set_F(pop_float());
+      device_state.set_D(pop_float());
+      device_state.set_I(pop_float());
+      device_state.set_P(pop_float());
       return;
     }
     case change_mode: {
@@ -220,11 +220,10 @@ private:
       buffer.push_front(device_state.get_current());
       break;
     case read_pid: {
-      auto &pid = device_state.pid();
-      push_float(pid.P);
-      push_float(pid.I);
-      push_float(pid.D);
-      push_float(pid.F);
+      push_float(device_state.get_P());
+      push_float(device_state.get_I());
+      push_float(device_state.get_D());
+      push_float(device_state.get_F());
       break;
     }
     case read_pos: {

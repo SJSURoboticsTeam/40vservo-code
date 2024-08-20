@@ -10,12 +10,7 @@
 #include "pwm.hpp"
 #include "rotation.hpp"
 
-void get_rot();
-void get_i();
-
 namespace {
-bool initial_rot = true;
-
 constexpr uint8_t ipropi_pin = 0;
 constexpr uint8_t divider_pin = 1;
 I2cState<DeviceState> *i2c_state = nullptr;
@@ -28,6 +23,7 @@ ISR(TWI_vect) {
   else
     disable_i2c();
 }
+
 int main() {
   init_spi();
   init_tmag();
