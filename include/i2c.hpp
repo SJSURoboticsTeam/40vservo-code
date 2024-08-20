@@ -6,6 +6,7 @@
 #include <bit>
 #include <cstdint>
 
+#include "debug.hpp"
 #include "device.hpp"
 #include "nonstd/ring_span.hpp"
 #include "set_reg.hpp"
@@ -161,7 +162,9 @@ struct I2cState {
 
   float pop_float() {
     std::array<uint8_t, 4> result;
-    std::copy(buffer.begin(), buffer.end(), result.data());
+    std::copy(buffer.rbegin(), buffer.rend(), result.data());
+    for (uint8_t _ = 0; _ != 4; ++_)
+      buffer.pop_back();
     return std::bit_cast<float>(result);
   }
 
@@ -178,7 +181,7 @@ struct I2cState {
     }
     case change_mode: {
       const float setpoint = pop_float();
-      const char mode = static_cast<char>( buffer.back());
+      const char mode = static_cast<char>(buffer.back());
       buffer.pop_back();
       DeviceState::Mode m = DeviceState::Mode::position;
       switch (mode) {
@@ -204,7 +207,7 @@ struct I2cState {
     }
   }
 
-  void push_back_float(float f) {
+  void push_float(float f) {
     auto p = std::bit_cast<std::array<uint8_t, 4>>(f);
     for (auto c : p) {
       buffer.push_front(c);
@@ -218,26 +221,26 @@ struct I2cState {
       break;
     case read_pid: {
       auto &pid = device_state->pid();
-      push_back_float(pid.P);
-      push_back_float(pid.I);
-      push_back_float(pid.D);
-      push_back_float(pid.F);
+      push_float(pid.P);
+      push_float(pid.I);
+      push_float(pid.D);
+      push_float(pid.F);
       break;
     }
     case read_pos: {
-      push_back_float(device_state->get_angle());
+      push_float(device_state->get_angle());
       break;
     }
     case read_vel: {
-      push_back_float(device_state->get_vel());
+      push_float(device_state->get_vel());
       break;
     }
     case read_current: {
-      push_back_float(device_state->dev_current);
+      push_float(device_state->dev_current);
       break;
     }
     case read_setpoint:
-      push_back_float(device_state->setpoint);
+      push_float(device_state->setpoint);
       break;
 
     default:
