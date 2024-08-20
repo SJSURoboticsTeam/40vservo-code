@@ -24,11 +24,13 @@ enum struct I2cStatus : uint8_t {
   nack_st = 0xc0,
   stop_st_err = 0xc8
 };
+using buffer_span = nonstd::ring_span_lite::ring_span<uint8_t>;
+template <typename WriteCallback, typename ReadCallback> struct I2c {
 
-template <typename DeviceLike> struct I2cState {
-
-  I2cState(DeviceLike &device)
-      : buffer(raw_buffer.begin(), raw_buffer.end()), device_state(device) {}
+  I2c(WriteCallback on_write, ReadCallback on_read)
+      : in_buffer(in_raw_buffer.begin(), in_raw_buffer.end()),
+        out_buffer(out_raw_buffer.begin(), out_raw_buffer.end()),
+        write(on_write), read(on_read) {}
 
 public:
   bool _serve(I2cStatus status) noexcept {
@@ -45,44 +47,36 @@ public:
     case ack_gen: {
       uint8_t data = TWDR;
       if (mode == addressing) {
-        return set_addr(data);
+        address = data;
+        return true;
       }
-      if (!is_write_mode() || buffer.full()) {
+      if (in_buffer.full()) {
         uint8_t _ = TWDR;
         mode = idle;
         return false;
       }
-      buffer.push_front(data);
+      in_buffer.push_front(data);
       return true;
     }
 
     case stop_sr: {
       mode = idle;
-      output_data();
+      write(address, in_buffer);
       return true;
     }
 
     case start_st: {
-      if (!is_read_mode() || buffer.full()) {
-        TWDR = 0xff;
-        mode = idle;
-        return false;
-      }
-      load_data();
-      uint8_t last_byte = buffer.back();
-      TWDR = last_byte;
-      buffer.pop_back();
-      return !buffer.empty();
+      read(address, in_buffer);
+      TWDR = in_buffer.pop_back();
+      return !in_buffer.empty();
     }
     case ack_st: {
-      if (buffer.empty()) {
+      if (in_buffer.empty()) {
         mode = idle;
         return false;
       }
-      uint8_t last_byte = buffer.back();
-      TWDR = last_byte;
-      buffer.pop_back();
-      return !buffer.empty();
+      TWDR = in_buffer.pop_back();
+      return !in_buffer.empty();
     }
     case nack_st: {
       mode = idle;
@@ -102,150 +96,16 @@ public:
   }
 
 private:
-  enum Mode : uint8_t {
-    idle,
-    addressing = 0x01,
-    change_mode = 0x02,
-    change_pid = 0x03,
-    change_setpoint = 0x04,
-    read_mode = 0x04,
-    read_pid = 0x80,
-    read_pos = 0x81,
-    read_vel = 0x82,
-    read_current = 0x83,
-    read_setpoint = 0x84,
-  };
+  enum Mode : uint8_t { idle, addressing };
 
   Mode mode = idle;
-  std::array<uint8_t, 64> raw_buffer;
-  nonstd::ring_span_lite::ring_span<uint8_t> buffer;
-  DeviceLike &device_state;
-
-  bool is_write_mode() const noexcept { return mode < 0x80; }
-  bool is_read_mode() const noexcept {
-    if (mode == idle || mode == addressing)
-      return false;
-    return mode >= 0x80;
-  }
-
-  bool set_addr(char addr) {
-    switch (addr) {
-    case 'm':
-      mode = change_mode;
-      return true;
-    case 't':
-      mode = change_pid;
-      return true;
-    case 's':
-      mode = change_setpoint;
-      return true;
-    case 'w':
-      mode = read_mode;
-      return true;
-    case 'T':
-      mode = read_pid;
-      return true;
-    case 'P':
-      mode = read_pos;
-      return true;
-    case 'V':
-      mode = read_vel;
-      return true;
-    case 'A':
-      mode = read_current;
-      return true;
-    case 'S':
-      mode = read_setpoint;
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  float pop_float() {
-    std::array<uint8_t, 4> result;
-    std::copy(buffer.rbegin(), buffer.rend(), result.data());
-    for (uint8_t _ = 0; _ != 4; ++_)
-      buffer.pop_back();
-    return std::bit_cast<float>(result);
-  }
-
-  void output_data() {
-    switch (mode) {
-    case change_pid: {
-      device_state.set_F(pop_float());
-      device_state.set_D(pop_float());
-      device_state.set_I(pop_float());
-      device_state.set_P(pop_float());
-      return;
-    }
-    case change_mode: {
-      const float setpoint = pop_float();
-      const char mode = static_cast<char>(buffer.back());
-      buffer.pop_back();
-      DeviceState::Mode m = DeviceState::Mode::position;
-      switch (mode) {
-      case 'p':
-        m = DeviceState::Mode::position;
-        break;
-      case 'v':
-        m = DeviceState::Mode::velocity;
-        break;
-      case 'a':
-        m = DeviceState::Mode::current;
-        break;
-      default:;
-      }
-      device_state.transition_state(m, setpoint);
-      break;
-    }
-    case change_setpoint:
-      device_state.set_setpoint(pop_float());
-      break;
-    default:
-      return;
-    }
-  }
-
-  void push_float(float f) {
-    auto p = std::bit_cast<std::array<uint8_t, 4>>(f);
-    for (auto c : p) {
-      buffer.push_front(c);
-    }
-  }
-
-  void load_data() {
-    switch (mode) {
-    case read_mode:
-      buffer.push_front(device_state.get_current());
-      break;
-    case read_pid: {
-      push_float(device_state.get_P());
-      push_float(device_state.get_I());
-      push_float(device_state.get_D());
-      push_float(device_state.get_F());
-      break;
-    }
-    case read_pos: {
-      push_float(device_state.get_angle());
-      break;
-    }
-    case read_vel: {
-      push_float(device_state.get_vel());
-      break;
-    }
-    case read_current: {
-      push_float(device_state.get_current());
-      break;
-    }
-    case read_setpoint:
-      push_float(device_state.get_setpoint());
-      break;
-
-    default:
-      break;
-    }
-  }
+  std::array<uint8_t, 64> in_raw_buffer;
+  nonstd::ring_span_lite::ring_span<uint8_t> in_buffer;
+  std::array<uint8_t, 64> out_raw_buffer;
+  nonstd::ring_span_lite::ring_span<uint8_t> out_buffer;
+  uint8_t address{};
+  WriteCallback write;
+  ReadCallback read;
 };
 
 inline void disable_i2c() noexcept { TWCR &= clearmask(TWEA); }

@@ -13,12 +13,14 @@
 namespace {
 constexpr uint8_t ipropi_pin = 0;
 constexpr uint8_t divider_pin = 1;
-I2cState<DeviceState> *i2c_state = nullptr;
+DeviceState state;
+auto i2c = I2c([](uint8_t addr, buffer_span &output) {},
+               [](uint8_t addr, buffer_span &input) {});
 } // namespace
 
 ISR(TWI_vect) {
   I2cStatus stat = static_cast<I2cStatus>(TWSR);
-  if (i2c_state->_serve(stat))
+  if (i2c._serve(stat))
     enable_i2c();
   else
     disable_i2c();
@@ -30,8 +32,7 @@ int main() {
   init_adc();
   init_pwm();
   DeviceState state;
-  auto i2c = I2cState(state);
-  i2c_state = &i2c;
+  // i2c_state = &i2c;
   state.update_loc(get_angle());
   state.update_loc(get_angle());
   state.set_current(get_analog(ipropi_pin));

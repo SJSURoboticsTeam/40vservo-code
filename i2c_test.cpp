@@ -1,14 +1,22 @@
+#include "debug.hpp"
 #include "i2c.hpp"
 #include "mock/device.hpp"
 #include <util/delay.h>
 
 namespace {
-I2cState<MockDevice> *i2c_state = nullptr;
+auto i2c = I2c(
+    [](uint8_t addr, buffer_span &output) {
+      debug_print("i2c addressed at 0x%x with bytes", addr);
+      while (!output.empty()) {
+        printf("0x%x ", output.pop_back());
+      }
+    },
+    [](uint8_t addr, buffer_span &input) { input.push_front(0xff); });
 } // namespace
 
 ISR(TWI_vect) {
   I2cStatus stat = static_cast<I2cStatus>(TWSR);
-  if (i2c_state->_serve(stat))
+  if (i2c._serve(stat))
     enable_i2c();
   else
     disable_i2c();
@@ -16,8 +24,6 @@ ISR(TWI_vect) {
 
 int main() {
   MockDevice state;
-  auto i2c = I2cState(state);
-  i2c_state = &i2c;
   init_i2c();
   while (true) {
     _delay_ms(10);
