@@ -11,8 +11,6 @@
 #include "nonstd/ring_span.hpp"
 #include "set_reg.hpp"
 
-inline DeviceState *device_state = nullptr;
-
 enum struct I2cStatus : uint8_t {
   start_sr = 0x60,
   start_gen = 0x70,
@@ -27,36 +25,13 @@ enum struct I2cStatus : uint8_t {
   stop_st_err = 0xc8
 };
 
-struct I2cState {
+template <typename DeviceLike> struct I2cState {
 
-  I2cState() : buffer(raw_buffer.begin(), raw_buffer.end()) {}
+  I2cState(DeviceLike &device)
+      : buffer(raw_buffer.begin(), raw_buffer.end()), device_state(device) {}
 
-  enum Mode : uint8_t {
-    idle,
-    addressing = 0x01,
-    change_mode = 0x02,
-    change_pid = 0x03,
-    change_setpoint = 0x04,
-    read_mode = 0x04,
-    read_pid = 0x80,
-    read_pos = 0x81,
-    read_vel = 0x82,
-    read_current = 0x83,
-    read_setpoint = 0x84,
-  };
-
-  bool is_write_mode() const noexcept { return mode < 0x80; }
-  bool is_read_mode() const noexcept {
-    if (mode == idle || mode == addressing)
-      return false;
-    return mode >= 0x80;
-  }
-
-  Mode mode = idle;
-  std::array<uint8_t, 64> raw_buffer;
-  nonstd::ring_span_lite::ring_span<uint8_t> buffer;
-
-  bool serve(I2cStatus status) noexcept {
+public:
+  bool _serve(I2cStatus status) noexcept {
     using enum I2cStatus;
     switch (status) {
     case start_sr:
@@ -126,6 +101,33 @@ struct I2cState {
     }
   }
 
+private:
+  enum Mode : uint8_t {
+    idle,
+    addressing = 0x01,
+    change_mode = 0x02,
+    change_pid = 0x03,
+    change_setpoint = 0x04,
+    read_mode = 0x04,
+    read_pid = 0x80,
+    read_pos = 0x81,
+    read_vel = 0x82,
+    read_current = 0x83,
+    read_setpoint = 0x84,
+  };
+
+  Mode mode = idle;
+  std::array<uint8_t, 64> raw_buffer;
+  nonstd::ring_span_lite::ring_span<uint8_t> buffer;
+  DeviceLike &device_state;
+
+  bool is_write_mode() const noexcept { return mode < 0x80; }
+  bool is_read_mode() const noexcept {
+    if (mode == idle || mode == addressing)
+      return false;
+    return mode >= 0x80;
+  }
+
   bool set_addr(char addr) {
     switch (addr) {
     case 'm':
@@ -169,14 +171,12 @@ struct I2cState {
   }
 
   void output_data() {
-    if (device_state == nullptr)
-      return;
     switch (mode) {
     case change_pid: {
-      device_state->pid().setF(pop_float());
-      device_state->pid().setD(pop_float());
-      device_state->pid().setI(pop_float());
-      device_state->pid().setP(pop_float());
+      device_state.pid().setF(pop_float());
+      device_state.pid().setD(pop_float());
+      device_state.pid().setI(pop_float());
+      device_state.pid().setP(pop_float());
       return;
     }
     case change_mode: {
@@ -196,11 +196,11 @@ struct I2cState {
         break;
       default:;
       }
-      device_state->transition_state(m, setpoint);
+      device_state.transition_state(m, setpoint);
       break;
     }
     case change_setpoint:
-      device_state->setpoint = pop_float();
+      device_state.set_setpoint(pop_float());
       break;
     default:
       return;
@@ -217,10 +217,10 @@ struct I2cState {
   void load_data() {
     switch (mode) {
     case read_mode:
-      buffer.push_front(device_state->mode);
+      buffer.push_front(device_state.get_current());
       break;
     case read_pid: {
-      auto &pid = device_state->pid();
+      auto &pid = device_state.pid();
       push_float(pid.P);
       push_float(pid.I);
       push_float(pid.D);
@@ -228,26 +228,26 @@ struct I2cState {
       break;
     }
     case read_pos: {
-      push_float(device_state->get_angle());
+      push_float(device_state.get_angle());
       break;
     }
     case read_vel: {
-      push_float(device_state->get_vel());
+      push_float(device_state.get_vel());
       break;
     }
     case read_current: {
-      push_float(device_state->dev_current);
+      push_float(device_state.get_current());
       break;
     }
     case read_setpoint:
-      push_float(device_state->setpoint);
+      push_float(device_state.get_setpoint());
       break;
 
     default:
       break;
     }
   }
-} inline i2c_state;
+};
 
 inline void disable_i2c() noexcept { TWCR &= clearmask(TWEA); }
 
@@ -258,12 +258,4 @@ inline void init_i2c() noexcept {
   // todo actually maybe the thermistor voltage divider can be used to config
   // this
   TWAR = 0x42;
-}
-
-ISR(TWI_vect) {
-  I2cStatus stat = static_cast<I2cStatus>(TWSR);
-  if (i2c_state.serve(stat))
-    enable_i2c();
-  else
-    disable_i2c();
 }
