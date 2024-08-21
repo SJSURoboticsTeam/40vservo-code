@@ -42,37 +42,26 @@ FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
 
 struct Initializer {
   std::array<char, 32> raw_buffer;
-  nonstd::ring_span_lite::ring_span<uint8_t> buffer;
+  nonstd::ring_span_lite::ring_span<char> buffer;
   Initializer() : buffer(raw_buffer.begin(), raw_buffer.end()) {
     uart_init();
     stdout = &uart_output;
     stdin = &uart_input;
   }
 
-  void insert(char c) {
-    if (c == '\n') {
-      insert('\r');
-    }
-    cli();
-    if (buffer.full()) {
-      sei();
-      loop_until_bit_is_set(UCSR0A, UDRE0);
-      cli();
-    }
-    buffer.push_back(c);
-    UCSR0B |= _BV(UDRIE0);
-    sei();
-  }
 };
 Initializer i;
 
 int uart_putchar(char c, FILE *) {
-  i.insert(c);
+  if (c == '\n')
+    uart_putchar('\r', nullptr);
+  UDR0 = c;
+  loop_until_bit_is_set(UCSR0A, UDRE0);
   return 0;
 }
 
-ISR(UART0_UDRE_vect) {
-  UDR0 = i.buffer.pop_front();
-  if (i.buffer.full())
-    UCSR0B &= ~(_BV(UDRIE0));
-}
+// ISR(UART0_UDRE_vect) {
+//   UDR0 = i.buffer.pop_front();
+//   if (i.buffer.empty())
+//     UCSR0B &= ~(_BV(UDRIE0));
+// }
