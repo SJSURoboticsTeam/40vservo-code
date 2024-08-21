@@ -9,10 +9,7 @@ int main() {
   printf("hello world!\n");
 
   while (true) {
-    if (ticks == 66) {
-      ticks = 0;
-      printf("waiting\n");
-    }
-    sleep_cpu();
+    sleep_ms(500);
+    printf("waiting\n");
   }
 }

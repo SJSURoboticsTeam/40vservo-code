@@ -110,20 +110,13 @@ int main() {
   init_adc();
   init_pwm();
   init_timer();
-  DeviceState state;
-  // i2c_state = &i2c;
   state.update_loc(get_angle());
   state.update_loc(get_angle());
   state.set_current(get_analog(ipropi_pin));
   init_i2c();
   sei();
-  // todo change to timer solution later
   while (true) {
-    sleep_cpu();
-    if (ticks < 14) {
-      continue;
-    }
-    ticks = 0;
+    sleep_ms(500);
     cli();
     set_motor(state.get_output());
     state.update_loc(get_angle());
