@@ -3,11 +3,9 @@
 #include <array>
 #include <avr/interrupt.h>
 #include <avr/io.h>
-#include <bit>
 #include <cstdint>
+#include <vector>
 
-#include "debug.hpp"
-#include "device.hpp"
 #include "nonstd/ring_span.hpp"
 #include "set_reg.hpp"
 
@@ -24,13 +22,14 @@ enum struct I2cStatus : uint8_t {
   nack_st = 0xc0,
   stop_st_err = 0xc8
 };
-using buffer_span = nonstd::ring_span_lite::ring_span<uint8_t>;
+
+inline uint8_t g = 0;
 template <typename WriteCallback, typename ReadCallback> struct I2c {
 
   I2c(WriteCallback on_write, ReadCallback on_read)
-      : in_buffer(in_raw_buffer.begin(), in_raw_buffer.end()),
-        out_buffer(out_raw_buffer.begin(), out_raw_buffer.end()),
-        write(on_write), read(on_read) {}
+      : in_buf(in_buf_raw.begin(), in_buf_raw.end()),
+        out_buf(out_buf_raw.begin(), out_buf_raw.end()), write(on_write),
+        read(on_read) {}
 
 public:
   bool _serve(I2cStatus status) noexcept {
@@ -48,35 +47,37 @@ public:
       uint8_t data = TWDR;
       if (mode == addressing) {
         address = data;
+        mode = writing;
         return true;
       }
-      if (in_buffer.full()) {
-        uint8_t _ = TWDR;
-        mode = idle;
-        return false;
-      }
-      in_buffer.push_front(data);
+      out_buf.push_back(data);
       return true;
     }
 
     case stop_sr: {
       mode = idle;
-      write(address, in_buffer);
+      if (!out_buf.empty())
+        write(address, out_buf);
+      while (!out_buf.empty()) {
+        out_buf.pop_front();
+      }
       return true;
     }
 
     case start_st: {
-      read(address, in_buffer);
-      TWDR = in_buffer.pop_back();
-      return !in_buffer.empty();
+      g++;
+      read(address, in_buf);
+      TWDR = in_buf.pop_front();
+      return !in_buf.empty();
     }
     case ack_st: {
-      if (in_buffer.empty()) {
+      if (in_buf.empty()) {
         mode = idle;
+        TWDR = 0xff;
         return false;
       }
-      TWDR = in_buffer.pop_back();
-      return !in_buffer.empty();
+      TWDR = in_buf.pop_front();;
+      return !in_buf.empty();
     }
     case nack_st: {
       mode = idle;
@@ -95,14 +96,13 @@ public:
     }
   }
 
-private:
-  enum Mode : uint8_t { idle, addressing };
+  // private:
+  enum Mode : uint8_t { idle, addressing, writing };
 
   Mode mode = idle;
-  std::array<uint8_t, 64> in_raw_buffer;
-  nonstd::ring_span_lite::ring_span<uint8_t> in_buffer;
-  std::array<uint8_t, 64> out_raw_buffer;
-  nonstd::ring_span_lite::ring_span<uint8_t> out_buffer;
+  std::array<uint8_t, 64> in_buf_raw{}, out_buf_raw{};
+  nonstd::ring_span_lite::ring_span<uint8_t> in_buf;
+  nonstd::ring_span_lite::ring_span<uint8_t> out_buf;
   uint8_t address{};
   WriteCallback write;
   ReadCallback read;
