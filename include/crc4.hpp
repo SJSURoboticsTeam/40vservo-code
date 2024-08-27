@@ -36,13 +36,6 @@ consteval std::array<uint8_t, 128> gen_table() noexcept {
 
 constexpr auto table = gen_table();
 
-constexpr uint8_t crc4_byte(uint8_t byte) noexcept {
-  if (byte % 2 == 0)
-    return table[byte / 2] & 0x0f;
-  else
-    return (table[byte / 2] & 0xf0) >> 4;
-}
-
 constexpr uint8_t crc_fast(uint8_t byte) noexcept {
   if (byte % 2 == 0)
     return table[byte / 2] & 0x0f;

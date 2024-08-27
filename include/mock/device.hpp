@@ -5,9 +5,9 @@
 struct MockDevice {
   enum Mode : char { position, velocity, current };
 
-  float get_angle() const noexcept { return 0; }
-  float get_vel() const noexcept { return 0; }
-  float get_current() const noexcept { return 0; }
+  float get_angle() const noexcept { return 23; }
+  float get_vel() const noexcept { return 1; }
+  float get_current() const noexcept { return 0.2; }
   float get_setpoint() const noexcept { return 0; }
   float get_P() const noexcept { return 0; }
   float get_I() const noexcept { return 0; }
@@ -21,7 +21,7 @@ struct MockDevice {
   void update_loc(uint16_t loc) noexcept { debug_print("location at %d", loc); }
   void set_current(float f) noexcept { debug_print("set current to %f", f); }
 
-  float get_output() noexcept { return 0; }
+  float get_output() noexcept { return 0.5; }
   Mode get_mode() const noexcept { return position; }
 
   MockDevice() = default;

@@ -3,8 +3,6 @@
 #include <avr/io.h>
 #include <stdio.h>
 
-#include "nonstd/ring_span.hpp"
-
 #ifndef BAUD
 #define BAUD 9600
 #endif
@@ -42,8 +40,7 @@ FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
 
 struct Initializer {
   std::array<char, 32> raw_buffer;
-  nonstd::ring_span_lite::ring_span<char> buffer;
-  Initializer() : buffer(raw_buffer.begin(), raw_buffer.end()) {
+  Initializer() {
     uart_init();
     stdout = &uart_output;
     stdin = &uart_input;

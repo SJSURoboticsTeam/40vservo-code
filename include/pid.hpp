@@ -29,7 +29,7 @@ public:
   double D;
   double F;
 
-  double getSetpoint() const { return setpoint; }
+  double getSetpoint() const noexcept { return setpoint; }
 
 private:
   double clamp(double, double, double);

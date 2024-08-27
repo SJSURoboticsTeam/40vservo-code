@@ -6,7 +6,7 @@
 #include <util/delay.h>
 
 #include "current.hpp"
-#include "device.hpp"
+#include "mock/device.hpp"
 #include "i2c.hpp"
 #include "pwm.hpp"
 #include "rotation.hpp"
@@ -15,23 +15,23 @@
 namespace {
 constexpr uint8_t ipropi_pin = 0;
 constexpr uint8_t divider_pin = 1;
-constexpr float get_float(auto &buffer) {
+constexpr float get_float(buffer_span &buffer) {
   std::array<uint8_t, 4> data;
   for (uint8_t i = 0; i != 4; i++) {
-    data[i] = buffer[i];
+    data[i] = buffer.pop_back();
   }
   return std::bit_cast<float>(data);
 }
-constexpr void push_float(auto &buffer, float f) {
+constexpr void push_float(buffer_span &buffer, float f) {
   auto data = std::bit_cast<std::array<uint8_t, 4>>(f);
   for (uint8_t b : data) {
-    buffer.push_back(b);
+    buffer.push_front(b);
   }
 }
 
-DeviceState state;
+MockDevice state;
 auto i2c = I2c(
-    [](uint8_t addr, auto &output) {
+    [](uint8_t addr, buffer_span &output) {
       switch (addr) {
       case 'p':
         state.set_P(get_float(output));
@@ -51,7 +51,7 @@ auto i2c = I2c(
       case 'm': {
         uint8_t mode = output.pop_back();
         float setpoint = get_float(output);
-        state.transition_state(DeviceState::Mode(mode), setpoint);
+        state.transition_state(MockDevice::Mode(mode), setpoint);
         break;
       }
       default:
@@ -60,7 +60,7 @@ auto i2c = I2c(
         }
       }
     },
-    [](uint8_t addr, auto &input) {
+    [](uint8_t addr, buffer_span &input) {
       switch (addr) {
       case 'p':
         push_float(input, state.get_P());
@@ -78,7 +78,7 @@ auto i2c = I2c(
         push_float(input, state.get_setpoint());
         break;
       case 'm': {
-        input.push_back(state.get_mode());
+        input.push_front(state.get_mode());
         break;
       }
       case 'x': {

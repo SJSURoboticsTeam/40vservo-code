@@ -1,6 +1,4 @@
-.PHONEY: all clean sim
-
-all: main.hex i2c_test.hex timer_test.hex
+.PHONEY: all clean sim gdb
 
 CC:=avr-gcc
 CXX:=avr-g++
@@ -16,10 +14,14 @@ CXXFLAGS := $(FLAGS) -std=c++20
 CPPFLAGS := -MMD -DF_CPU=16000000
 LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections
 
-FILES := pid.cpp main.cpp print.cpp timer_test.cpp
+MAIN_FILES := main.cpp i2c_test.cpp timer_test.cpp pwm_test.cpp analog_test.cpp
+LIB_FILES := pid.cpp print.cpp
+FILES := $(MAIN_FILES) $(LIB_FILES)
 BASENAMES := $(basename $(FILES))
 OBJ := $(addsuffix .o, $(BASENAMES))
 DEPS := $(addsuffix .d, $(BASENAMES))
+
+all: $(addsuffix .hex, $(basename $(MAIN_FILES))) $(addsuffix .elf, $(basename $(MAIN_FILES)))
 
 clean:
 	rm -f *.elf *.o *.hex *.map *.txt *.d
@@ -30,10 +32,7 @@ clean:
 main.elf: main.o pid.o
 	$(CXX) -o  $@ $^ $(LDFLAGS)
 
-i2c_test.elf: i2c_test.o pid.o print.o
-	$(CXX) -o  $@ $^ $(LDFLAGS)
-
-timer_test.elf: timer_test.o print.o
+%_test.elf: %_test.o print.o pid.o
 	$(CXX) -o  $@ $^ $(LDFLAGS)
 
 sim: test.elf
