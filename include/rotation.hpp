@@ -8,7 +8,6 @@
 #include <avr/sfr_defs.h>
 #include <bit>
 #include <cstdint>
-#include <cstdio>
 
 inline void init_spi() noexcept {
   PORTB |= _BV(PORT2);
@@ -18,7 +17,20 @@ inline void init_spi() noexcept {
   SPCR = setmask(SPE, MSTR);
 }
 
-// enum struct Address:uint8_t{};
+enum struct ReadAddr : uint8_t {};
+enum struct WriteAddr : uint8_t {};
+
+inline consteval ReadAddr operator""_r(unsigned long long i) {
+  if (i > 0x7f)
+    throw "i is too large";
+  return ReadAddr(i);
+}
+
+inline consteval WriteAddr operator""_w(unsigned long long i) {
+  if (i > 0x7f)
+    throw "i is too large";
+  return WriteAddr(i);
+}
 
 struct TmagPacket {
   uint8_t addr : 7 = 0;
@@ -26,13 +38,18 @@ struct TmagPacket {
   uint16_t data = 0;
   uint8_t crc : 4 = 0;
   uint8_t command : 4 = 0;
-};
 
-inline TmagPacket make_write(uint8_t addr, auto data) {
-  TmagPacket packet{.addr = addr, .data = std::bit_cast<uint16_t>(data)};
-  packet.crc = crc4(packet);
-  return packet;
-}
+  constexpr TmagPacket() = default;
+  constexpr TmagPacket(ReadAddr addr, uint8_t command = 0)
+      : addr(static_cast<uint8_t>(addr)), is_read(true), command(command) {
+    crc = crc4(*this);
+  }
+  constexpr TmagPacket(WriteAddr addr, auto data, uint8_t command = 0)
+      : addr(static_cast<uint8_t>(addr)), is_read(false),
+        data(std::bit_cast<uint16_t>(data)), command(command) {
+    crc = crc4(*this);
+  }
+};
 
 struct TmagReturn {
   uint8_t status2;
@@ -56,31 +73,27 @@ inline TmagReturn spi_transaction(auto input) noexcept {
   // I hate spinlock implementations. I am too lazy to bother trying something
   // better
   auto output = result.begin();
-  PORTB &= ~_BV(PORT2);
+  PORTB &= clearmask(PORT2);
   for (auto c : in) {
     SPDR = c;
     loop_until_bit_is_set(SPSR, SPIF);
     *output++ = SPDR;
   }
-  PORTB |= _BV(PORT2);
+  PORTB |= setmask(PORT2);
   return std::bit_cast<TmagReturn>(result);
 }
 
-inline TmagReturn read_raw(uint8_t addr) noexcept {
-  TmagPacket packet{
-      .addr = addr,
-      .is_read = true,
-  };
-  packet.crc = crc4(packet);
+inline TmagReturn read_raw(ReadAddr addr) noexcept {
+  TmagPacket packet = TmagPacket(addr);
   auto value = std::bit_cast<TmagReturn>(spi_transaction(packet));
   return value;
 }
 
-inline uint16_t get_sys_stat() noexcept { return read_raw(0xe).data; }
+inline uint16_t get_sys_stat() noexcept { return read_raw(0xe_r).data; }
 
-inline uint16_t get_angle() noexcept { return read_raw(0x13).data; }
+inline uint16_t get_angle() noexcept { return read_raw(0x13_r).data; }
 
-inline uint16_t get_mag() noexcept { return read_raw(0x14).data; }
+inline uint16_t get_mag() noexcept { return read_raw(0x14_r).data; }
 
 enum struct MagnetType : uint8_t { none, NdBFe, SmCo, Ceramic };
 enum struct OpMode : uint8_t {
@@ -120,6 +133,7 @@ enum struct Axis : uint8_t { none, xy, yz, xz };
 
 struct [[gnu::packed]] TmagSensorConfig {
   uint8_t magnet_ch_en_hi : 2;
+  // See datasheet about values for this
   uint8_t sleeptime : 4;
   Axis angle_en : 2;
 
@@ -132,7 +146,6 @@ struct [[gnu::packed]] TmagSensorConfig {
     magnet_ch_en_lo = i & 0x3;
     magnet_ch_en_hi = (i & 0xc) >> 2;
   }
-  // See datasheet about values for this
 };
 
 inline void init_tmag() noexcept {
@@ -147,11 +160,8 @@ inline void init_tmag() noexcept {
       .angle_en = Axis::xy,
   };
   sensor.set_magnet_ch(0xf);
-  spi_transaction(byteswap(uint32_t(0x0f000407)));
-  auto result0 = spi_transaction(TmagPacket{.addr = 0xd, .is_read = true});
-  auto result1 = spi_transaction(make_write(1, sensor));
-  auto result2 = spi_transaction(make_write(0, settings));
-  printf("r0 data: 0x%x s2: %x", result0.data, result0.status2);
-  printf("r1 s2: 0x%x\n", result1.status2);
-  printf("r2 s2: 0x%x\n", result2.status2);
+  // spi_transaction(byteswap(uint32_t(0x0f000407)));
+  auto result0 = spi_transaction(TmagPacket(0x0d_r));
+  auto result1 = spi_transaction(TmagPacket(0x01_w, sensor));
+  auto result2 = spi_transaction(TmagPacket(0x00_w, settings));
 }

@@ -1,9 +1,10 @@
 #pragma once
 
-template <typename... Args> auto setmask(Args... values) noexcept {
+#include <cstdint>
+template <typename... Args> uint8_t setmask(Args... values) noexcept {
   return ((1 << values) | ...);
 }
 
-template <typename... Args> auto clearmask(Args... values) noexcept {
+template <typename... Args> uint8_t clearmask(Args... values) noexcept {
   return ~((1 << values) | ...);
 }
