@@ -12,9 +12,9 @@ FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I include
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
 CPPFLAGS := -MMD -DF_CPU=16000000
-LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections
+LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections -Wl,-u,vfprintf -lprintf_flt
 
-MAIN_FILES := main.cpp i2c_test.cpp timer_test.cpp pwm_test.cpp analog_test.cpp
+MAIN_FILES := main.cpp i2c_test.cpp timer_test.cpp pwm_test.cpp analog_test.cpp tmag_test.cpp
 LIB_FILES := pid.cpp print.cpp
 FILES := $(MAIN_FILES) $(LIB_FILES)
 BASENAMES := $(basename $(FILES))
