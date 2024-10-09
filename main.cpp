@@ -126,16 +126,14 @@ int main() {
   init_pwm();
   init_timer();
   state.update_loc(get_angle());
-  state.update_loc(get_angle());
-  state.set_current(get_analog(ipropi_pin));
   init_i2c();
   sei();
   while (true) {
     sleep_ms(20);
     cli();
-    set_motor(state.get_output());
     state.update_loc(get_angle());
     state.set_current(get_analog(ipropi_pin));
+    set_motor(state.get_output());
     sei();
   }
 }
