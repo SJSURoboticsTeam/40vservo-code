@@ -11,16 +11,15 @@ inline uint8_t ticks = 0;
 inline uint8_t remainder = 0;
 
 struct tick_count {
+  consteval tick_count(uint32_t ms) {
+    ticks = float(ms) / 1000 * 16'000'000 / 256 / 1024;
+    remainder = (ticks - ticks) * 256;
+  }
+  constexpr tick_count() = default;
+  constexpr tick_count(uint16_t t, uint8_t r) : ticks(t), remainder(r) {}
   uint16_t ticks;
   uint8_t remainder;
 };
-
-inline constexpr tick_count calculate_ticks(uint32_t ms) {
-  float ticks = float(ms) / 1000 * 16'000'000 / 256 / 1024;
-  uint16_t integer_count = ticks;
-  uint8_t remainder = (ticks - integer_count) * 256;
-  return tick_count{integer_count, remainder};
-}
 
 } // namespace timer_impl
 
@@ -32,8 +31,8 @@ ISR(TIMER0_COMPA_vect) {
 
 // works until about 1074790.4 ms aka about 12 days
 // surely you would not delay for over 12 days right?
-inline void sleep_ms(uint32_t ms) {
-  auto [tick_time, remainder] = timer_impl::calculate_ticks(ms);
+inline void sleep_ms(timer_impl::tick_count ms) {
+  auto &[tick_time, remainder] = ms;
   timer_impl::ticks = 0;
   OCR0A = 0xff;
   TIMSK0 |= setmask(OCIE0A);
@@ -49,10 +48,15 @@ inline void sleep_ms(uint32_t ms) {
   }
   OCR0A = remainder;
   TCNT0 = 0;
-  sleep_enable();
-  sei();
-  sleep_cpu();
-  sleep_disable();
+  while (true) {
+    cli();
+    if (timer_impl::ticks != 0)
+      break;
+    sleep_enable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
+  }
   TIMSK0 &= clearmask(OCIE0A);
 }
 
