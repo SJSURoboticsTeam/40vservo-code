@@ -44,7 +44,12 @@ struct DeviceState {
 
   Mode get_mode() const noexcept { return mode; }
 
-  DeviceState() = default;
+  DeviceState() {
+    p_pid.setOutputLimits(0.1);
+    v_pid.setOutputLimits(0.1);
+    i_pid.setOutputLimits(0.1);
+  };
+
   DeviceState(DeviceState &&) = delete;
   DeviceState(DeviceState const &) = delete;
   ~DeviceState() = default;
