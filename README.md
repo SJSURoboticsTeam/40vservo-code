@@ -4,7 +4,7 @@ This is the repo for the 40V servo firmware.
 
 ## I2C interface
 
-All registers are written in ASCII values. 
+All registers are written in ASCII values. The default address is 0xfe, but can be configured upon request.
 
 | Register letter| R/W | Register Type | Register Description |
 | ---------------|---- | ------------- | -------------------- |
