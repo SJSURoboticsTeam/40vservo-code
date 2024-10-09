@@ -115,7 +115,7 @@ inline void i2c_nack() noexcept {
 
 inline void i2c_ack() noexcept { TWCR |= setmask(TWEA, TWINT); }
 
-inline void init_i2c(uint8_t address = 0x42) noexcept {
+inline void init_i2c(uint8_t address = 0xfe) noexcept {
   TWCR = setmask(TWEN, TWIE, TWEA);
   // todo actually maybe the thermistor voltage divider can be used to config
   // this
