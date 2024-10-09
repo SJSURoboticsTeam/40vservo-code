@@ -12,7 +12,7 @@ inline uint8_t remainder = 0;
 
 struct tick_count {
   consteval tick_count(uint32_t ms) {
-    ticks = float(ms) / 1000 * 16'000'000 / 256 / 1024;
+    ticks = float(ms) / 1000 * F_CPU / 256 / 1024;
     remainder = (ticks - ticks) * 256;
   }
   constexpr tick_count() = default;

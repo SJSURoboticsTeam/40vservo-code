@@ -11,7 +11,7 @@ FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I include
            -Werror=array-bounds -mcall-prologues -flto
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
-CPPFLAGS := -MMD -DF_CPU=16000000
+CPPFLAGS := -MMD -DF_CPU=12000000
 LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections -Wl,-u,vfprintf -lprintf_flt
 
 MAIN_FILES := main.cpp i2c_test.cpp timer_test.cpp pwm_test.cpp analog_test.cpp tmag_test.cpp
