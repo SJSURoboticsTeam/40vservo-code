@@ -114,9 +114,9 @@ auto i2c = I2c(
 ISR(TWI_vect) {
   I2cStatus stat = static_cast<I2cStatus>(TWSR);
   if (i2c._serve(stat))
-    enable_i2c();
+    i2c_ack();
   else
-    disable_i2c();
+    i2c_nack();
 }
 
 int main() {

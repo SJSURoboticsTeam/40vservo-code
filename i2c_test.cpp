@@ -26,9 +26,9 @@ ISR(TWI_vect) {
   I2cStatus stat = static_cast<I2cStatus>(TWSR);
   statuses.push_back(stat);
   if (i2c._serve(stat))
-    enable_i2c();
+    i2c_ack();
   else
-    disable_i2c();
+    i2c_nack();
 }
 
 int main() {

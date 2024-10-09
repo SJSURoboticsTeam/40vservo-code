@@ -76,7 +76,7 @@ public:
         TWDR = 0xff;
         return false;
       }
-      TWDR = in_buf.pop_front();;
+      TWDR = in_buf.pop_front();
       return !in_buf.empty();
     }
     case nack_st: {
@@ -108,9 +108,12 @@ public:
   ReadCallback read;
 };
 
-inline void disable_i2c() noexcept { TWCR &= clearmask(TWEA); }
+inline void i2c_nack() noexcept {
+  TWCR &= clearmask(TWEA);
+  TWCR |= setmask(TWINT);
+}
 
-inline void enable_i2c() noexcept { TWCR |= setmask(TWEA); }
+inline void i2c_ack() noexcept { TWCR |= setmask(TWEA, TWINT); }
 
 inline void init_i2c(uint8_t address = 0x42) noexcept {
   TWCR = setmask(TWEN, TWIE, TWEA);
