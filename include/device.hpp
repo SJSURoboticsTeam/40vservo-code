@@ -41,6 +41,7 @@ struct DeviceState {
     }
     return pid().getOutput(metric);
   }
+
   Mode get_mode() const noexcept { return mode; }
 
   DeviceState() = default;
