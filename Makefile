@@ -8,10 +8,10 @@ MCU:=atmega328p
 
 ASFLAGS := -mmcu=$(MCU)
 FLAGS :=   -maccumulate-args -ffunction-sections  -mmcu=$(MCU) -Oz -g -I include --param=min-pagesize=0 \
-           -Werror=array-bounds -mcall-prologues -flto
+           -Werror=array-bounds -mcall-prologues -flto -Wall
 CFLAGS := $(FLAGS)
 CXXFLAGS := $(FLAGS) -std=c++20
-CPPFLAGS := -MMD -DF_CPU=12000000
+CPPFLAGS := -MMD -DF_CPU=1000000
 LDFLAGS :=  -mmcu=$(MCU) -Wl,--gc-sections -Wl,-u,vfprintf -lprintf_flt
 
 MAIN_FILES := main.cpp i2c_test.cpp timer_test.cpp pwm_test.cpp analog_test.cpp tmag_test.cpp
@@ -29,7 +29,7 @@ clean:
 %.hex: %.elf
 	avr-objcopy -j .text -j .data -O ihex $< $@
 
-main.elf: main.o pid.o
+main.elf: main.o pid.o print.o
 	$(CXX) -o  $@ $^ $(LDFLAGS)
 
 %_test.elf: %_test.o print.o pid.o
