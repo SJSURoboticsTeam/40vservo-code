@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
 
 #include "pid.hpp"
 
@@ -33,10 +34,13 @@ struct DeviceState {
     switch (mode) {
     case position:
       metric = get_angle();
+      break;
     case velocity:
       metric = get_vel();
+      break;
     case current:
       metric = dev_current;
+      break;
     default:;
     }
     return pid().getOutput(metric);
@@ -46,6 +50,7 @@ struct DeviceState {
 
   DeviceState() {
     p_pid.setOutputLimits(0.1);
+    p_pid.setP(0.001);
     v_pid.setOutputLimits(0.1);
     i_pid.setOutputLimits(0.1);
   };
