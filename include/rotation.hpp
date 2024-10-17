@@ -91,7 +91,7 @@ inline TmagReturn read_raw(ReadAddr addr) noexcept {
 
 inline uint16_t get_sys_stat() noexcept { return read_raw(0xe_r).data; }
 
-inline uint16_t get_angle() noexcept { return read_raw(0x13_r).data; }
+inline uint16_t get_angle() noexcept { return byteswap(read_raw(0x13_r).data); }
 
 inline uint16_t get_mag() noexcept { return read_raw(0x14_r).data; }
 
@@ -160,7 +160,7 @@ inline void init_tmag() noexcept {
       .angle_en = Axis::xy,
   };
   sensor.set_magnet_ch(0xf);
-  // spi_transaction(byteswap(uint32_t(0x0f000407)));
+  spi_transaction(byteswap(uint32_t(0x0f000407)));
   auto result0 = spi_transaction(TmagPacket(0x0d_r));
   auto result1 = spi_transaction(TmagPacket(0x01_w, sensor));
   auto result2 = spi_transaction(TmagPacket(0x00_w, settings));
